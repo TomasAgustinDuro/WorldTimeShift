@@ -1,47 +1,77 @@
 import { useState } from "react";
 import "./App.css";
 import moment from "moment-timezone";
+import { Autocomplete, TextField } from "@mui/material";
 
-/*
-  Acceder al continente => data.results[0].components.continent
-  Acceder al pais => data.results[0].components.country
-*/
-
-/*
-  Para luego definir opciones de búsqueda
-  // const [cityOptions, setCityOptions] = useState({})
-*/
 
 function App() {
-  // Guardar el horaria del usuario
+  // Guardar el horaria del usuario.
   const [userInfo, setUserInfo] = useState({
     userHour: "",
     userCityStart: "",
     userCityEnd: "",
   });
 
-  // Guarda el continente obtenido de API
+  // Guarda el continente obtenido de API.
   const [continent, setContinent] = useState({
     continentStart: "",
     continentEnd: "",
   });
 
+  // Guardar la hora original y la hora convertida a la ciudad elegida.
   const [hours, setHours] = useState({
     firstCityHours: "",
     secondCityHours: "",
   });
+
+  // Para luego definir opciones de búsqueda
+  const [cityOptions, setCityOptions] = useState([]);
+
+  // Opciones para países
+  const fetchDataOptions = (city) => {
+    setCityOptions([]);
+    const url = `https://api.opencagedata.com/geocode/v1/json?q=${city}&key=50aa3d82bb2b4d869199b5a59e105aeb&language=es&pretty=1`;
+    fetch(url)
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.results && data.results.length > 0) {
+          const formattedResult = data.results[0]?.formatted;
+
+          if (formattedResult) {
+            setCityOptions((prevState) => {
+              if (Array.isArray(prevState)) {
+                return prevState.includes(formattedResult)
+                  ? prevState
+                  : [...prevState, formattedResult];
+              }
+
+              return [formattedResult];
+            });
+          }
+        }
+      })
+
+      .catch((error) => {
+        console.error("Error al obtener datos de la API:", error);
+      });
+  };
 
   // Llamar a la API que nos proporcionará el continente
   const fetchDataCity = async (cityOne, cityTwo) => {
     const urlStart = `https://api.opencagedata.com/geocode/v1/json?q=${cityOne}&key=50aa3d82bb2b4d869199b5a59e105aeb&language=es&pretty=1`;
     const urlEnd = `https://api.opencagedata.com/geocode/v1/json?q=${cityTwo}&key=50aa3d82bb2b4d869199b5a59e105aeb&language=es&pretty=1`;
 
+    // OpenCage tiene un apartado para timezone que viene con formato Continent/City revisar
     fetch(urlStart)
       .then((response) => response.json())
       .then((data) =>
         setContinent((prevState) => ({
           ...prevState,
-          continentStart: data.results[0].components.continent,
+          continentStart:
+            data.results[0].components.continent === "South America" ||
+            data.results[0].components.continent === "North America"
+              ? "America"
+              : data.results[0].components.continent,
         }))
       );
 
@@ -50,7 +80,11 @@ function App() {
       .then((data) =>
         setContinent((prevState) => ({
           ...prevState,
-          continentEnd: data.results[0].components.continent,
+          continentEnd:
+            data.results[0].components.continent === "South America" ||
+            data.results[0].components.continent === "North America"
+              ? "America"
+              : data.results[0].components.continent,
         }))
       );
   };
@@ -59,39 +93,52 @@ function App() {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    setUserInfo((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    if (name === "userHour") {
+      setUserInfo((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
   // Obtener valores, llamar a la api y armar moment.js
   const handleSubmit = () => {
+    console.log("cities", userInfo.userCityStart, userInfo.userCityEnd);
+    console.log("horario usuario", userInfo.userHour);
     fetchDataCity(userInfo.userCityStart, userInfo.userCityEnd);
 
     // Como primer parametro utilizo el horario establecido por el usuario
     // Segundo parametro es el primer continente nombrado
     // Tercer parametro es la primera ciudad
-    // El horario debe ir dentro del TZ() para que interprete el horario como si fuese de Madrid, sino toma el horario del sistema y luego lo convierte a Madrid. 
+    // El horario debe ir dentro del TZ() para que interprete el horario como si fuese de Madrid, sino toma el horario del sistema y luego lo convierte a Madrid.
     const firstCity = moment.tz(
       userInfo.userHour,
       "YYYY-MM-DD HH:mm",
       `${continent.continentStart}/${userInfo.userCityStart}`
     );
 
-    // Transformar la zona horaria para retornar el horario deseado
+    // Verifica si el primer momento es válido
+    if (!firstCity.isValid()) {
+      console.error("Hora no válida para la ciudad de inicio");
+    }
+
+    // Clonar y convertir la hora al continente y ciudad de destino
     const secondCity = firstCity
       .clone()
       .tz(`${continent.continentEnd}/${userInfo.userCityEnd}`);
 
+    // Verifica si la hora convertida es válida
+    if (!secondCity.isValid()) {
+      console.error("Hora no válida para la ciudad de destino");
+    }
     setHours((prev) => ({
       ...prev,
-      firstCityHours: firstCity.format("hh:mm"),
+      firstCityHours: firstCity.format("HH:mm"),
     }));
 
     setHours((prev) => ({
       ...prev,
-      secondCityHours: secondCity.format("hh:mm")
+      secondCityHours: secondCity.format("HH:mm"),
     }));
 
     console.log("City", continent);
@@ -100,35 +147,65 @@ function App() {
     console.log("Ciudad dos", userInfo.userCityEnd);
     console.log("Estado ciudad uno", continent.continentStart);
     console.log("Estado ciudad dos", continent.continentEnd);
-    console.log("Primera ciudad", firstCity.format("hh:mm"));
-    console.log("Segunda ciudad", secondCity.format("hh:mm"));
+    console.log("Primera ciudad", firstCity.format("HH:mm zz"));
+    console.log("Segunda ciudad", secondCity.format("HH:mm zz"));
   };
 
   return (
     <>
       <input type="datetime-local" onChange={handleChange} name="userHour" />
 
-      <input
-        type="text"
-        placeholder="Ingresar país 1"
-        onChange={handleChange}
-        name="userCityStart"
+      <Autocomplete
+        options={cityOptions}
+        onInputChange={(event, value) => fetchDataOptions(value)}
+        onChange={(event, newValue) => {
+          let cityTest = newValue
+            .split(",")[0]
+            .replace(/[áéíóú]/g, (match) => {
+              const replacements = { á: "a", é: "e", í: "i", ó: "o", ú: "u" };
+              return replacements[match];
+            })
+            .replace(/\s+/g, "_"); // Reemplazar los espacios por guiones bajos
+          setUserInfo((prev) => ({
+            ...prev,
+            userCityStart: cityTest || "", // Actualiza la ciudad de inicio
+          }));
+        }}
+        renderInput={(params) => (
+          <TextField {...params} label="Primera ciudad" variant="outlined" />
+        )}
       />
 
-      <input
-        type="text"
-        placeholder="Ingresar país 2"
-        onChange={handleChange}
-        name="userCityEnd"
+      <Autocomplete
+        options={cityOptions}
+        onInputChange={(event, value) => fetchDataOptions(value)}
+        onChange={(event, newValue) => {
+          let cityTest = newValue
+            .split(",")[0]
+            .replace(/[áéíóú]/g, (match) => {
+              const replacements = { á: "a", é: "e", í: "i", ó: "o", ú: "u" };
+              return replacements[match];
+            })
+            .replace(/\s+/g, "_"); // Reemplazar los espacios por guiones bajos
+
+          setUserInfo((prev) => ({
+            ...prev,
+            userCityEnd: cityTest || "", // Actualiza la ciudad de inicio
+          }));
+        }}
+        renderInput={(params) => (
+          <TextField {...params} label="Segunda ciudad" variant="outlined" />
+        )}
       />
 
       <div>
-        <h3>{userInfo.userCityStart}</h3>
+        <h3>{userInfo.userCityStart.replace(/_/g, " ")}</h3>{" "}
+        {/* Reemplaza guion bajo por espacio */}
         <p>Horario inicial: {hours.firstCityHours}</p>
-        <h3>{userInfo.userCityEnd}</h3>
+        <h3>{userInfo.userCityEnd.replace(/_/g, " ")}</h3>{" "}
+        {/* Reemplaza guion bajo por espacio */}
         <p>Horario final: {hours.secondCityHours}</p>
       </div>
-
       <button onClick={handleSubmit}>Search</button>
     </>
   );
