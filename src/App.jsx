@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./App.css";
 import moment from "moment-timezone";
 import { Autocomplete, TextField } from "@mui/material";
@@ -101,56 +101,35 @@ function App() {
     }
   };
 
+  useEffect(() => {
+    if (continent.continentStart && continent.continentEnd && userInfo.userHour) {
+      const firstCity = moment.tz(
+        userInfo.userHour,
+        "YYYY-MM-DD HH:mm",
+        `${continent.continentStart}/${userInfo.userCityStart}`
+      );
+      if (!firstCity.isValid()) {
+        console.error("Hora no válida para la ciudad de inicio");
+      }
+
+      const secondCity = firstCity.clone().tz(`${continent.continentEnd}/${userInfo.userCityEnd}`);
+      if (!secondCity.isValid()) {
+        console.error("Hora no válida para la ciudad de destino");
+      }
+
+      setHours({
+        firstCityHours: firstCity.format("HH:mm"),
+        secondCityHours: secondCity.format("HH:mm"),
+      });
+    }
+  }, [continent, userInfo]);
+
   // Obtener valores, llamar a la api y armar moment.js
   const handleSubmit = () => {
     console.log("cities", userInfo.userCityStart, userInfo.userCityEnd);
     console.log("horario usuario", userInfo.userHour);
     fetchDataCity(userInfo.userCityStart, userInfo.userCityEnd);
-
-    // Como primer parametro utilizo el horario establecido por el usuario
-    // Segundo parametro es el primer continente nombrado
-    // Tercer parametro es la primera ciudad
-    // El horario debe ir dentro del TZ() para que interprete el horario como si fuese de Madrid, sino toma el horario del sistema y luego lo convierte a Madrid.
-    const firstCity = moment.tz(
-      userInfo.userHour,
-      "YYYY-MM-DD HH:mm",
-      `${continent.continentStart}/${userInfo.userCityStart}`
-    );
-
-    // Verifica si el primer momento es válido
-    if (!firstCity.isValid()) {
-      console.error("Hora no válida para la ciudad de inicio");
-    }
-
-    // Clonar y convertir la hora al continente y ciudad de destino
-    const secondCity = firstCity
-      .clone()
-      .tz(`${continent.continentEnd}/${userInfo.userCityEnd}`);
-
-    // Verifica si la hora convertida es válida
-    if (!secondCity.isValid()) {
-      console.error("Hora no válida para la ciudad de destino");
-    }
-    setHours((prev) => ({
-      ...prev,
-      firstCityHours: firstCity.format("HH:mm"),
-    }));
-
-    setHours((prev) => ({
-      ...prev,
-      secondCityHours: secondCity.format("HH:mm"),
-    }));
-
-    console.log("City", continent);
-    console.log("Horario:", userInfo.userHour);
-    console.log("Ciudad uno", userInfo.userCityStart);
-    console.log("Ciudad dos", userInfo.userCityEnd);
-    console.log("Estado ciudad uno", continent.continentStart);
-    console.log("Estado ciudad dos", continent.continentEnd);
-    console.log("Primera ciudad", firstCity.format("HH:mm zz"));
-    console.log("Segunda ciudad", secondCity.format("HH:mm zz"));
   };
-
   return (
     <>
       <input type="datetime-local" onChange={handleChange} name="userHour" />
