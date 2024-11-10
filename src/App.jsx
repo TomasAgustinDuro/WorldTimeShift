@@ -3,7 +3,6 @@ import "./App.css";
 import moment from "moment-timezone";
 import { Autocomplete, TextField } from "@mui/material";
 
-
 function App() {
   // Guardar el horaria del usuario.
   const [userInfo, setUserInfo] = useState({
@@ -28,38 +27,42 @@ function App() {
   const [cityOptions, setCityOptions] = useState([]);
 
   // Opciones para países
+  // Opciones para países
   const fetchDataOptions = (city) => {
     setCityOptions([]);
-    const url = `https://api.opencagedata.com/geocode/v1/json?q=${city}&key=50aa3d82bb2b4d869199b5a59e105aeb&language=es&pretty=1`;
+    const username = "tomasduro";  // Cambia esto por tu nombre de usuario de Geonames
+    const url = `http://api.geonames.org/searchJSON?q=${city}&maxRows=10&lang=es&username=${username}`;
+
     fetch(url)
       .then((response) => response.json())
       .then((data) => {
-        if (data.results && data.results.length > 0) {
-          const formattedResult = data.results[0]?.formatted;
+        if (data.geonames && data.geonames.length > 0) {
+          const cityResults = data.geonames.map((result) => result.toponymName); // Usamos `toponymName` para obtener el nombre de la ciudad
 
-          if (formattedResult) {
+          // Filtrar los resultados que coinciden parcialmente
+          const filteredResults = cityResults.filter((result) =>
+            result.toLowerCase().includes(city.toLowerCase()) // Coincidencia parcial
+          );
+
+          if (filteredResults.length > 0) {
             setCityOptions((prevState) => {
-              if (Array.isArray(prevState)) {
-                return prevState.includes(formattedResult)
-                  ? prevState
-                  : [...prevState, formattedResult];
-              }
-
-              return [formattedResult];
+              // Asegurarse de que no haya duplicados
+              return [...new Set([...prevState, ...filteredResults])];
             });
           }
         }
       })
-
       .catch((error) => {
         console.error("Error al obtener datos de la API:", error);
       });
-  };
+};
 
+  
+  
   // Llamar a la API que nos proporcionará el continente
   const fetchDataCity = async (cityOne, cityTwo) => {
-    const urlStart = `https://api.opencagedata.com/geocode/v1/json?q=${cityOne}&key=50aa3d82bb2b4d869199b5a59e105aeb&language=es&pretty=1`;
-    const urlEnd = `https://api.opencagedata.com/geocode/v1/json?q=${cityTwo}&key=50aa3d82bb2b4d869199b5a59e105aeb&language=es&pretty=1`;
+    const urlStart = `https://api.opencagedata.com/geocode/v1/json?q=${cityOne}&key=50aa3d82bb2b4d869199b5a59e105aeb&language=en&pretty=1`;
+    const urlEnd = `https://api.opencagedata.com/geocode/v1/json?q=${cityTwo}&key=50aa3d82bb2b4d869199b5a59e105aeb&language=en&pretty=1`;
 
     // OpenCage tiene un apartado para timezone que viene con formato Continent/City revisar
     fetch(urlStart)
@@ -102,7 +105,11 @@ function App() {
   };
 
   useEffect(() => {
-    if (continent.continentStart && continent.continentEnd && userInfo.userHour) {
+    if (
+      continent.continentStart &&
+      continent.continentEnd &&
+      userInfo.userHour
+    ) {
       const firstCity = moment.tz(
         userInfo.userHour,
         "YYYY-MM-DD HH:mm",
@@ -112,7 +119,9 @@ function App() {
         console.error("Hora no válida para la ciudad de inicio");
       }
 
-      const secondCity = firstCity.clone().tz(`${continent.continentEnd}/${userInfo.userCityEnd}`);
+      const secondCity = firstCity
+        .clone()
+        .tz(`${continent.continentEnd}/${userInfo.userCityEnd}`);
       if (!secondCity.isValid()) {
         console.error("Hora no válida para la ciudad de destino");
       }
@@ -132,60 +141,110 @@ function App() {
   };
   return (
     <>
-      <input type="datetime-local" onChange={handleChange} name="userHour" />
+      <section>
+        <div className="form">
+          <h2>World Time Shift</h2>
+          <input
+            type="datetime-local"
+            onChange={handleChange}
+            name="userHour"
+          />
 
-      <Autocomplete
-        options={cityOptions}
-        onInputChange={(event, value) => fetchDataOptions(value)}
-        onChange={(event, newValue) => {
-          let cityTest = newValue
-            .split(",")[0]
-            .replace(/[áéíóú]/g, (match) => {
-              const replacements = { á: "a", é: "e", í: "i", ó: "o", ú: "u" };
-              return replacements[match];
-            })
-            .replace(/\s+/g, "_"); // Reemplazar los espacios por guiones bajos
-          setUserInfo((prev) => ({
-            ...prev,
-            userCityStart: cityTest || "", // Actualiza la ciudad de inicio
-          }));
-        }}
-        renderInput={(params) => (
-          <TextField {...params} label="Primera ciudad" variant="outlined" />
-        )}
-      />
+          <Autocomplete
+            options={cityOptions}
+            onInputChange={(event, value) => fetchDataOptions(value)}
+            onChange={(event, newValue) => {
+              let cityTest = newValue
+                .split(",")[0]
+                .replace(/[áéíóú]/g, (match) => {
+                  const replacements = {
+                    á: "a",
+                    é: "e",
+                    í: "i",
+                    ó: "o",
+                    ú: "u",
+                  };
+                  return replacements[match];
+                })
+                .replace(/\s+/g, "_"); // Reemplazar los espacios por guiones bajos
+              setUserInfo((prev) => ({
+                ...prev,
+                userCityStart: cityTest || "", // Actualiza la ciudad de inicio
+              }));
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Primera ciudad"
+                variant="outlined"
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#000", // Cambia el borde a negro
+                    },
+                    "&.Mui-focused .MuiInputLabel-root": {
+                      color: "#000", // Cambia el color del label a negro
+                    },
+                  },
+                }}
+              />
+            )}
+          />
 
-      <Autocomplete
-        options={cityOptions}
-        onInputChange={(event, value) => fetchDataOptions(value)}
-        onChange={(event, newValue) => {
-          let cityTest = newValue
-            .split(",")[0]
-            .replace(/[áéíóú]/g, (match) => {
-              const replacements = { á: "a", é: "e", í: "i", ó: "o", ú: "u" };
-              return replacements[match];
-            })
-            .replace(/\s+/g, "_"); // Reemplazar los espacios por guiones bajos
+          <Autocomplete
+            options={cityOptions}
+            onInputChange={(event, value) => fetchDataOptions(value)}
+            onChange={(event, newValue) => {
+              let cityTest = newValue
+                .split(",")[0]
+                .replace(/[áéíóú]/g, (match) => {
+                  const replacements = {
+                    á: "a",
+                    é: "e",
+                    í: "i",
+                    ó: "o",
+                    ú: "u",
+                  };
+                  return replacements[match];
+                })
+                .replace(/\s+/g, "_"); // Reemplazar los espacios por guiones bajos
 
-          setUserInfo((prev) => ({
-            ...prev,
-            userCityEnd: cityTest || "", // Actualiza la ciudad de inicio
-          }));
-        }}
-        renderInput={(params) => (
-          <TextField {...params} label="Segunda ciudad" variant="outlined" />
-        )}
-      />
+              setUserInfo((prev) => ({
+                ...prev,
+                userCityEnd: cityTest || "", // Actualiza la ciudad de inicio
+              }));
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Segunda ciudad"
+                variant="outlined"
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#000", // Cambia el borde a negro
+                    },
+                    "&.Mui-focused .MuiInputLabel-root": {
+                      color: "#000", // Cambia el color del label a negro
+                    },
+                  },
+                }}
+              />
+            )}
+          />
 
-      <div>
-        <h3>{userInfo.userCityStart.replace(/_/g, " ")}</h3>{" "}
-        {/* Reemplaza guion bajo por espacio */}
-        <p>Horario inicial: {hours.firstCityHours}</p>
-        <h3>{userInfo.userCityEnd.replace(/_/g, " ")}</h3>{" "}
-        {/* Reemplaza guion bajo por espacio */}
-        <p>Horario final: {hours.secondCityHours}</p>
-      </div>
-      <button onClick={handleSubmit}>Search</button>
+          <button onClick={handleSubmit}>Search</button>
+        </div>
+
+        <div className="informacion">
+          <h3>{userInfo.userCityStart.replace(/_/g, " ")}</h3>{" "}
+          {/* Reemplaza guion bajo por espacio */}
+          <p>Horario inicial: {hours.firstCityHours}</p>
+          <h3>{userInfo.userCityEnd.replace(/_/g, " ")}</h3>{" "}
+          {/* Reemplaza guion bajo por espacio */}
+          <p>Horario final: {hours.secondCityHours}</p>
+        </div>
+      </section>
     </>
   );
 }
