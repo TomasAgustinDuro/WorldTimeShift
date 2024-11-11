@@ -7,7 +7,7 @@ const useCityOptions = (city) => {
   // Función para realizar la búsqueda de ciudades
   const fetchCityOptions = async (city) => {
     setCityOptions([]); // Limpiar las opciones anteriores
-    console.log(city)
+    console.log(city);
 
     const username = "tomasduro"; // Cambia esto por tu nombre de usuario de Geonames
     const url = `https://secure.geonames.org/searchJSON?q=${city}&maxRows=10&lang=es&username=${username}
@@ -17,12 +17,11 @@ const useCityOptions = (city) => {
       // Realizar la llamada a la API
       const response = await fetch(url);
       const data = await response.json();
-      console.log(data);
       if (data.geonames && data.geonames.length > 0) {
         // Extraer los nombres de las ciudades y el país
         const cityResults = data.geonames.map((result) => ({
           name: result.toponymName,
-          country: result.countryName, // Incluye el país
+          country: result.countryName,
         }));
 
         // Filtrar los resultados que coinciden parcialmente con la ciudad ingresada
