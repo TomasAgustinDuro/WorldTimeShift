@@ -10,7 +10,8 @@ const useCityOptions = (city) => {
     console.log(city)
 
     const username = "tomasduro"; // Cambia esto por tu nombre de usuario de Geonames
-    const url = `http://api.geonames.org/searchJSON?q=${city}&maxRows=10&lang=es&username=${username}`;
+    const url = `https://secure.geonames.org/searchJSON?q=${city}&maxRows=10&lang=es&username=${username}
+`;
 
     try {
       // Realizar la llamada a la API
